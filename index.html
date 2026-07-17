@@ -89,13 +89,14 @@
       </div>
     </section>
 
-    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
       <div class="kpi-card"><span class="kpi-label">Participación estudiantil</span><p id="kpi-students" class="kpi-value">0 / 0</p><p id="kpi-students-sub" class="kpi-sub">Interactuaron / total por Estudiante ID</p></div>
       <div class="kpi-card"><span class="kpi-label">Interacciones</span><p id="kpi-interactions" class="kpi-value">0</p><p class="kpi-sub">Registros con Recurso acción</p></div>
       <div class="kpi-card"><span class="kpi-label">Asignaturas</span><p id="kpi-subjects" class="kpi-value">0</p><p class="kpi-sub">Códigos de asignatura únicos</p></div>
       <div class="kpi-card"><span class="kpi-label">Recursos únicos</span><p id="kpi-resources" class="kpi-value">0</p><p class="kpi-sub">Solo por Recurso url</p></div>
       <div class="kpi-card"><span class="kpi-label">Rating promedio</span><p id="kpi-rating" class="kpi-value">0.00</p><p id="kpi-rating-count" class="kpi-sub">0 recursos con rating válido</p></div>
       <div class="kpi-card"><span class="kpi-label">Tiempo promedio</span><p id="kpi-time" class="kpi-value">0:00</p><p id="kpi-time-count" class="kpi-sub">0 registros con tiempo</p></div>
+      <div class="kpi-card"><span class="kpi-label">Recursos comentados</span><p id="kpi-commented-resources" class="kpi-value">0</p><p id="kpi-comments-count" class="kpi-sub">0 comentarios registrados</p></div>
     </section>
 
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -107,6 +108,46 @@
       <div class="chart-card"><h3 class="chart-title">Top videos más valorados</h3><p class="text-xs text-slate-500 mt-1 mb-3">Ordena por cantidad de ratings válidos entre 1 y 5.</p><div class="h-72"><canvas id="chart-videos"></canvas></div></div>
     </section>
 
+
+    <section class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+      <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
+        <div>
+          <h3 class="chart-title flex items-center gap-2"><i class="fa-solid fa-comments text-utpl-blue"></i> Análisis de comentarios de recursos</h3>
+          <p class="text-xs text-slate-500 mt-1">Cuenta únicamente comentarios no vacíos y agrupa los recursos por <b>Recurso url</b>.</p>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <span class="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200"><b id="comments-total-inline">0</b> comentarios</span>
+          <span class="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200"><b id="commented-resources-inline">0</b> recursos comentados</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div class="lg:col-span-1 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <div>
+            <label for="commented-resource-selector" class="block text-[10px] uppercase font-bold tracking-wider text-slate-500 mb-1.5">Recursos con comentarios</label>
+            <select id="commented-resource-selector" class="filter-select">
+              <option value="">Sin recursos comentados</option>
+            </select>
+            <p class="text-[10px] text-slate-500 mt-1.5">Ordenados desde el recurso con más comentarios hasta el menos comentado.</p>
+          </div>
+          <a id="most-commented-url" href="#" target="_blank" rel="noopener noreferrer" class="block text-xs font-bold text-utpl-blue break-all hover:underline">Sin recursos comentados</a>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-white border border-slate-200 rounded-lg p-3"><p class="text-[10px] text-slate-500 uppercase font-bold">Comentarios</p><p id="most-commented-count" class="text-xl font-black mt-1">0</p></div>
+            <div class="bg-white border border-slate-200 rounded-lg p-3"><p class="text-[10px] text-slate-500 uppercase font-bold">Estudiantes</p><p id="most-commented-students" class="text-xl font-black mt-1">0</p></div>
+          </div>
+          <div class="text-xs text-slate-600"><b>Código y carrera:</b><p id="most-commented-context" class="mt-1">-</p></div>
+        </div>
+        <div class="lg:col-span-2">
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider">Comentarios del recurso</h4>
+            <span id="unique-comments-count" class="text-[10px] text-slate-500">0 comentarios únicos</span>
+          </div>
+          <div id="most-commented-comments" class="space-y-2 max-h-72 overflow-y-auto pr-1">
+            <div class="text-sm text-slate-500 border border-dashed border-slate-300 rounded-xl p-5 text-center">No existen comentarios para los filtros seleccionados.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="grid grid-cols-1 lg:grid-cols-5 gap-6">
       <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="chart-title mb-2">Auditoría por recurso destacado</h3><p class="text-xs text-slate-500 mb-4">El selector reúne únicamente los recursos incluidos en los rankings Top N.</p>
@@ -116,6 +157,7 @@
           <div class="audit-row"><span>Interacciones</span><b id="audit-interactions">0</b></div>
           <div class="audit-row"><span>Tiempo promedio</span><b id="audit-time">0:00</b></div>
           <div class="audit-row"><span>Rating promedio</span><b id="audit-rating">0.00</b></div>
+          <div class="audit-row"><span>Comentarios</span><b id="audit-comments">0</b></div>
         </div>
         <div class="h-40 mt-4"><canvas id="chart-resource-actions"></canvas></div>
       </div>
@@ -174,6 +216,7 @@
 
     let rawData = [];
     let filteredData = [];
+    let currentCommentedResources = [];
     const charts = {};
 
     document.head.insertAdjacentHTML('beforeend', `<style>
@@ -541,6 +584,98 @@
       return [...unique.values()];
     }
 
+    function getValidComments(resource) {
+      return resource.rows
+        .map(row => ({
+          text: normalizeText(row['Recurso comentario']),
+          studentId: normalizeText(row['Estudiante ID']),
+          studentName: normalizeText(row['Estudiante nombre']),
+          code: normalizeText(row['Código asignatura']),
+          career: normalizeText(row['Carrera'])
+        }))
+        .filter(item => item.text);
+    }
+
+    function buildCommentAnalysis(resources) {
+      const commented = resources
+        .map(resource => {
+          const comments = getValidComments(resource);
+          const uniqueStudents = new Set(comments.map(item => item.studentId).filter(Boolean));
+          return { ...resource, comments, commentCount: comments.length, commentStudents: uniqueStudents.size };
+        })
+        .filter(resource => resource.commentCount > 0)
+        .sort((a, b) => (b.commentCount - a.commentCount) || (b.commentStudents - a.commentStudents));
+
+      return {
+        commentedResources: commented,
+        totalComments: commented.reduce((sum, resource) => sum + resource.commentCount, 0),
+        mostCommented: commented[0] || null
+      };
+    }
+
+    function renderSelectedCommentResource(resourceKey) {
+      const resource = currentCommentedResources.find(item => item.key === resourceKey) || currentCommentedResources[0] || null;
+      const urlElement = document.getElementById('most-commented-url');
+      const commentsContainer = document.getElementById('most-commented-comments');
+
+      if (!resource) {
+        urlElement.textContent = 'Sin recursos comentados';
+        urlElement.href = '#';
+        document.getElementById('most-commented-count').textContent = '0';
+        document.getElementById('most-commented-students').textContent = '0';
+        document.getElementById('most-commented-context').textContent = '-';
+        document.getElementById('unique-comments-count').textContent = '0 comentarios';
+        commentsContainer.innerHTML = '<div class="text-sm text-slate-500 border border-dashed border-slate-300 rounded-xl p-5 text-center">No existen comentarios para los filtros seleccionados.</div>';
+        return;
+      }
+
+      urlElement.textContent = resource.url;
+      urlElement.href = resource.url || '#';
+      document.getElementById('most-commented-count').textContent = resource.commentCount.toLocaleString('es-EC');
+      document.getElementById('most-commented-students').textContent = resource.commentStudents.toLocaleString('es-EC');
+      document.getElementById('most-commented-context').innerHTML = resourceAcademicTooltip(resource).map(escapeHtml).join('<br>') || '-';
+      document.getElementById('unique-comments-count').textContent = `${resource.commentCount.toLocaleString('es-EC')} comentarios`;
+
+      commentsContainer.innerHTML = resource.comments.map((comment, index) => `
+        <article class="border border-slate-200 rounded-xl p-3 bg-white">
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 w-7 h-7 rounded-full bg-utpl-blue text-white flex items-center justify-center text-[10px] font-bold">${index + 1}</span>
+            <div class="min-w-0">
+              <p class="text-sm text-slate-700 whitespace-pre-wrap break-words">${escapeHtml(comment.text)}</p>
+              <p class="text-[10px] text-slate-500 mt-2">${escapeHtml(comment.studentName || comment.studentId || 'Estudiante no identificado')} · ${escapeHtml(comment.code || 'Sin código')} · ${escapeHtml(comment.career || 'Sin carrera')}</p>
+            </div>
+          </div>
+        </article>`).join('');
+    }
+
+    function renderCommentAnalysis(resources) {
+      const analysis = buildCommentAnalysis(resources);
+      currentCommentedResources = analysis.commentedResources;
+
+      document.getElementById('kpi-commented-resources').textContent = analysis.commentedResources.length.toLocaleString('es-EC');
+      document.getElementById('kpi-comments-count').textContent = `${analysis.totalComments.toLocaleString('es-EC')} comentarios registrados`;
+      document.getElementById('comments-total-inline').textContent = analysis.totalComments.toLocaleString('es-EC');
+      document.getElementById('commented-resources-inline').textContent = analysis.commentedResources.length.toLocaleString('es-EC');
+
+      const selector = document.getElementById('commented-resource-selector');
+      const previous = selector.value;
+
+      if (!analysis.commentedResources.length) {
+        selector.innerHTML = '<option value="">Sin recursos comentados</option>';
+        renderSelectedCommentResource('');
+        return;
+      }
+
+      selector.innerHTML = analysis.commentedResources.map((resource, index) => {
+        const shortUrl = resource.url.length > 72 ? `${resource.url.slice(0, 69)}...` : resource.url;
+        return `<option value="${escapeHtml(resource.key)}">${index + 1}. ${escapeHtml(shortUrl)} — ${resource.commentCount} comentario${resource.commentCount === 1 ? '' : 's'}</option>`;
+      }).join('');
+
+      const validPrevious = analysis.commentedResources.some(resource => resource.key === previous);
+      selector.value = validPrevious ? previous : analysis.commentedResources[0].key;
+      renderSelectedCommentResource(selector.value);
+    }
+
     function updateDashboard() {
       const totalStudents = new Set(
         filteredData.map(row => normalizeText(row['Estudiante ID'])).filter(Boolean)
@@ -572,6 +707,7 @@
       document.getElementById('kpi-time').textContent = formatTime(average(times));
       document.getElementById('kpi-time-count').textContent = `${times.length} registros con tiempo`;
 
+      renderCommentAnalysis(resources);
       const rankings = renderCharts(resources);
       renderResourceSelector(rankings);
       renderTable(resources);
@@ -691,7 +827,7 @@
           datasets: [{
             label,
             data,
-            backgroundColor: ['#002F6C','#F2C811','#3B82F6','#10B981','#8B5CF6','#F97316','#EF4444','#14B8A6'],
+            backgroundColor: ['#60A5FA','#F2C811','#3B82F6','#10B981','#8B5CF6','#F97316','#EF4444','#14B8A6'],
             valueFormatter: options.valueFormatter,
             borderWidth: type === 'doughnut' ? 2 : 0,
             borderColor: type === 'doughnut' ? '#FFFFFF' : undefined
@@ -767,7 +903,7 @@
         'chart-youtube',
         rankings.youtube.map(shortResourceLabel),
         [
-          { label: 'Play', data: rankings.youtube.map(resource => resource.plays), backgroundColor: '#002F6C' },
+          { label: 'Play', data: rankings.youtube.map(resource => resource.plays), backgroundColor: '#60A5FA' },
           { label: 'Finalizaron', data: rankings.youtube.map(resource => resource.ended), backgroundColor: '#10B981' }
         ],
         { indexAxis: 'y', resources: rankings.youtube, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
@@ -824,7 +960,7 @@
       const key = document.getElementById('resource-selector').value;
       const resource = groupResources(filteredData).find(r => r.key === key);
       if (!resource) {
-        ['audit-type','audit-interactions','audit-time','audit-rating'].forEach((id,i) => document.getElementById(id).textContent = i ? '0' : '-');
+        ['audit-type','audit-interactions','audit-time','audit-rating','audit-comments'].forEach((id,i) => document.getElementById(id).textContent = i ? '0' : '-');
         document.getElementById('resource-frame').classList.add('hidden');
         document.getElementById('resource-fallback').classList.remove('hidden');
         return;
@@ -834,7 +970,8 @@
       document.getElementById('audit-type').textContent = resource.type;
       document.getElementById('audit-interactions').textContent = resource.rows.length;
       document.getElementById('audit-time').textContent = formatTime(average(times));
-      document.getElementById('audit-rating').textContent = average(ratings).toFixed(2);
+      document.getElementById('audit-rating').textContent = ratings.length ? average(ratings).toFixed(2) : '0.00';
+      document.getElementById('audit-comments').textContent = getValidComments(resource).length.toLocaleString('es-EC');
       const validActionRows = resource.rows.filter(row => normalizeText(row['Recurso acción']));
       const actions = countBy(validActionRows,'Recurso acción');
       makeChart('chart-resource-actions','bar',Object.keys(actions),Object.values(actions),'Acciones');
@@ -1009,6 +1146,7 @@
     document.getElementById('filter-rating').addEventListener('change', () => applyFilters());
     document.getElementById('top-resource-count').addEventListener('input', () => updateDashboard());
     document.getElementById('resource-selector').addEventListener('change', analyseSelectedResource);
+    document.getElementById('commented-resource-selector').addEventListener('change', event => renderSelectedCommentResource(event.target.value));
     document.getElementById('load-preview').addEventListener('click', loadPendingPreview);
 
     renderChecklist([]);
