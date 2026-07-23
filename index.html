@@ -1418,6 +1418,78 @@
       ]);
     }
 
+
+    function makeReportInterpretations(metrics, rankings, typeRows, actionRows) {
+      const participation = metrics.totalStudents ? (metrics.interactingStudents / metrics.totalStudents) * 100 : 0;
+      const ratedCoverage = metrics.uniqueResources ? (metrics.ratedResources.length / metrics.uniqueResources) * 100 : 0;
+      const commentedCoverage = metrics.uniqueResources ? (metrics.comments.commentedResources.length / metrics.uniqueResources) * 100 : 0;
+      const leadingType = typeRows.length ? `${typeRows[0][0]} (${typeRows[0][1]} registros)` : 'sin información disponible';
+      const leadingAction = actionRows.length ? `${actionRows[0][0]} (${actionRows[0][1]} registros)` : 'sin información disponible';
+      return {
+        filters: 'La tabla delimita el universo analizado. Todas las métricas, rankings y conclusiones posteriores corresponden exclusivamente a las selecciones registradas; por ello, cualquier cambio de filtro modifica el alcance del informe.',
+        kpis: `La participación alcanza el ${participation.toFixed(1)}%. Se identificaron ${metrics.nonInteractingStudents} estudiantes sin interacción, lo que permite focalizar acciones de acompañamiento. La cobertura de valoración es del ${ratedCoverage.toFixed(1)}% de los recursos y la cobertura de comentarios del ${commentedCoverage.toFixed(1)}%.`,
+        types: `El tipo de recurso con mayor presencia es ${leadingType}. Esta concentración permite reconocer qué formatos predominan, pero no implica por sí sola mayor efectividad pedagógica; debe contrastarse con interacción, finalización, valoración y comentarios.`,
+        actions: `La acción más frecuente es ${leadingAction}. La distribución permite distinguir entre accesos iniciales y acciones que evidencian consumo más profundo, como finalizaciones, valoraciones o comentarios.`,
+        genially: rankings.genially.length ? `Los recursos Genially se ordenan por tiempo acumulado de interacción. Los primeros lugares deben revisarse para determinar si el mayor tiempo responde a interés y exploración o a posibles dificultades de navegación.` : 'No se identificaron recursos Genially con tiempo positivo para construir este ranking.',
+        youtube: rankings.youtube.length ? 'Los videos de YouTube se ordenan por eventos de reproducción y se acompaña el número de finalizaciones. Una diferencia amplia entre reproducciones y finalizaciones puede indicar abandono temprano, duración excesiva o falta de alineación con la actividad.' : 'No se identificaron videos de YouTube con eventos suficientes de reproducción o finalización.',
+        canvas: rankings.canvasFiles.length ? 'Los archivos Canvas se ordenan por cantidad de valoraciones válidas y, en caso de empate, por rating promedio. Conviene distinguir popularidad de calidad: un recurso muy valorado en cantidad no necesariamente posee el promedio más alto.' : 'No se identificaron archivos Canvas con valoraciones válidas entre 1 y 5.',
+        videos: rankings.videos.length ? 'El ranking reúne videos internos y de YouTube con valoraciones válidas. La cantidad de valoraciones refleja cobertura de opinión, mientras que el promedio expresa percepción de calidad.' : 'No se identificaron videos con valoraciones válidas entre 1 y 5.',
+        comments: metrics.comments.commentedResources.length ? `Los comentarios se concentran en ${metrics.comments.commentedResources.length} recursos. El recurso más comentado reúne ${metrics.comments.mostCommented.commentCount} aportes, por lo que constituye el principal punto de revisión cualitativa.` : 'No existen comentarios registrados para el conjunto filtrado.'
+      };
+    }
+
+    function classifyCommentText(text) {
+      const value = normalizeText(text).toLowerCase();
+      if (!value) return 'sin_clasificar';
+      const technical = ['no abre','no carga','error','enlace','link','audio','video','pantalla','descarga','funciona','acceso'];
+      const positive = ['excelente','bueno','muy bueno','interesante','claro','útil','util','me gustó','me gusto','didáctico','didactico'];
+      const improvement = ['mejorar','falta','debería','deberia','confuso','difícil','dificil','largo','corto','más ejemplos','mas ejemplos','actualizar'];
+      if (technical.some(k => value.includes(k))) return 'incidencia_tecnica';
+      if (improvement.some(k => value.includes(k))) return 'sugerencia_mejora';
+      if (positive.some(k => value.includes(k))) return 'positivo';
+      return 'otro';
+    }
+
+    function makeCommentDecisionInsights(metrics) {
+      const comments = metrics.comments.commentedResources.flatMap(resource => resource.comments || []);
+      const counts = { positivo: 0, incidencia_tecnica: 0, sugerencia_mejora: 0, otro: 0 };
+      comments.forEach(comment => {
+        const category = classifyCommentText(comment.text);
+        if (category === 'sin_clasificar') return;
+        counts[category] = (counts[category] || 0) + 1;
+      });
+      const total = comments.length || 1;
+      const pct = n => ((n / total) * 100).toFixed(1);
+      const observations = [];
+      if (!comments.length) {
+        observations.push('No existen comentarios suficientes para formular mejoras basadas en evidencia cualitativa. Se recomienda promover la retroalimentación estudiantil mediante preguntas breves y específicas.');
+        return { counts, observations };
+      }
+      observations.push(`De ${comments.length} comentarios analizados mediante reglas de palabras clave, ${counts.positivo} (${pct(counts.positivo)}%) presentan una orientación positiva, ${counts.sugerencia_mejora} (${pct(counts.sugerencia_mejora)}%) contienen sugerencias de mejora y ${counts.incidencia_tecnica} (${pct(counts.incidencia_tecnica)}%) refieren posibles incidencias técnicas.`);
+      if (counts.incidencia_tecnica) observations.push('Priorizar la verificación de enlaces, permisos, reproducción, descarga y compatibilidad de los recursos asociados con observaciones técnicas.');
+      if (counts.sugerencia_mejora) observations.push('Revisar los recursos con sugerencias para fortalecer claridad, extensión, ejemplos, actualización y correspondencia con las actividades de aprendizaje.');
+      if (counts.positivo) observations.push('Conservar y reutilizar las características de los recursos con comentarios positivos, especialmente claridad, utilidad, interactividad y pertinencia percibida.');
+      observations.push('Realizar una revisión humana de los textos antes de tomar decisiones definitivas, debido a que la clasificación automática es orientativa y depende de expresiones explícitas.');
+      return { counts, observations };
+    }
+
+    function makeReportRecommendations(metrics, rankings) {
+      const participation = metrics.totalStudents ? (metrics.interactingStudents / metrics.totalStudents) * 100 : 0;
+      const recommendations = [];
+      if (participation < 70) recommendations.push('Prioridad alta: identificar a los estudiantes sin interacción y activar acciones de acompañamiento, recordatorios y orientación sobre el uso de los recursos.');
+      else if (metrics.nonInteractingStudents > 0) recommendations.push('Dar seguimiento focalizado a los estudiantes sin interacción para reducir brechas de participación, aunque la cobertura general sea favorable.');
+      if (metrics.uniqueResources && metrics.ratedResources.length / metrics.uniqueResources < 0.2) recommendations.push('Incrementar la cobertura de valoración mediante solicitudes breves y contextualizadas; el promedio actual representa una proporción reducida del total de recursos.');
+      if (metrics.uniqueResources && metrics.comments.commentedResources.length / metrics.uniqueResources < 0.1) recommendations.push('Ampliar la obtención de comentarios con preguntas orientadoras sobre claridad, utilidad, dificultad técnica y pertinencia del recurso.');
+      if (rankings.youtube.length) {
+        const lowCompletion = rankings.youtube.filter(r => r.plays > 0 && (r.ended / r.plays) < 0.5);
+        if (lowCompletion.length) recommendations.push(`Revisar ${lowCompletion.length} video(s) de YouTube con una relación de finalización inferior al 50%; considerar duración, segmentación, introducción y vinculación con la actividad.`);
+      }
+      if (rankings.genially.length) recommendations.push('Examinar los Genially con mayor tiempo acumulado mediante revisión pedagógica y técnica para diferenciar interacción significativa de navegación prolongada por dificultad.');
+      recommendations.push('Contrastar los rankings con el contexto de cada asignatura y carrera antes de replicar, sustituir o retirar recursos.');
+      recommendations.push('Establecer un ciclo de mejora: revisar evidencia, ajustar el recurso, comunicar el cambio y comparar los indicadores en el siguiente periodo.');
+      return recommendations;
+    }
+
     function makeReportConclusions(metrics, rankings) {
       const participation = metrics.totalStudents ? (metrics.interactingStudents / metrics.totalStudents) * 100 : 0;
       const lines = [];
@@ -1466,6 +1538,7 @@
         const rankings = buildRankings(metrics.resources);
         const filters = getReportFilterRows();
         const conclusions = makeReportConclusions(metrics, rankings);
+        const recommendations = makeReportRecommendations(metrics, rankings);
         const now = new Date();
         const dateText = now.toLocaleDateString('es-EC', { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -1521,6 +1594,26 @@
           spacing: { after: 110, line: 300 },
           children: [new TextRun({ text, size: 22, color: '334155' })]
         });
+        const analysisBox = text => new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 5, color: '93C5FD' },
+            bottom: { style: BorderStyle.SINGLE, size: 5, color: '93C5FD' },
+            left: { style: BorderStyle.SINGLE, size: 5, color: '93C5FD' },
+            right: { style: BorderStyle.SINGLE, size: 5, color: '93C5FD' }
+          },
+          rows: [new TableRow({ children: [new TableCell({
+            shading: { type: ShadingType.CLEAR, fill: 'EFF6FF' },
+            margins: { top: 130, bottom: 130, left: 150, right: 150 },
+            children: [new Paragraph({
+              spacing: { after: 0, line: 290 },
+              children: [
+                new TextRun({ text: 'Interpretación para la toma de decisiones. ', bold: true, color: BLUE, size: 21 }),
+                new TextRun({ text, color: '334155', size: 21 })
+              ]
+            })]
+          })] })]
+        });
 
         const kpiRows = [
           ['Participación estudiantil', `${metrics.interactingStudents} / ${metrics.totalStudents}`, `${metrics.nonInteractingStudents} no interactuaron`],
@@ -1536,6 +1629,8 @@
         const actionCounts = countBy(filteredData.filter(row => normalizeText(row['Recurso acción'])), 'Recurso acción');
         const typeRows = Object.entries(typeCounts).sort((a,b) => b[1]-a[1]).map(([name,count]) => [name, count.toLocaleString('es-EC')]);
         const actionRows = Object.entries(actionCounts).sort((a,b) => b[1]-a[1]).map(([name,count]) => [name, count.toLocaleString('es-EC')]);
+        const interpretations = makeReportInterpretations(metrics, rankings, typeRows, actionRows);
+        const commentInsights = makeCommentDecisionInsights(metrics);
 
         const commentRows = metrics.comments.commentedResources.slice(0, 20).map((resource, index) => [
           String(index + 1), resource.url, reportResourceContext(resource), String(resource.commentCount)
@@ -1559,32 +1654,56 @@
           title('1. Alcance y filtros aplicados'),
           body('El presente informe sintetiza la participación estudiantil y el uso de recursos educativos registrados en el archivo cargado. Los resultados se calculan con base en las reglas definidas en el tablero y se actualizan conforme a los filtros seleccionados.'),
           makeTable(['Filtro', 'Selección'], filters, [28,72]),
+          analysisBox(interpretations.filters),
           title('2. Resumen ejecutivo de indicadores'),
           makeTable(['Indicador', 'Resultado', 'Criterio de cálculo'], kpiRows, [30,20,50]),
+          analysisBox(interpretations.kpis),
           title('3. Distribución de recursos y acciones'),
           subtitle('3.1 Distribución por tipo de recurso'),
           makeTable(['Tipo de recurso', 'Registros'], typeRows.length ? typeRows : [['Sin datos','0']], [72,28]),
+          analysisBox(interpretations.types),
           subtitle('3.2 Acciones registradas'),
           makeTable(['Acción', 'Cantidad'], actionRows.length ? actionRows : [['Sin datos','0']], [72,28]),
+          analysisBox(interpretations.actions),
           new Paragraph({ children: [new PageBreak()] }),
           title('4. Recursos destacados'),
           subtitle('4.1 Genially con mayor tiempo de interacción'),
           makeTable(['N.º','URL','Asignatura y carrera','Tiempo acumulado'], reportTopRows(rankings.genially, r => formatTime(r.metric)), [7,38,38,17]),
+          analysisBox(interpretations.genially),
           subtitle('4.2 YouTube con mayor reproducción y finalización'),
           makeTable(['N.º','URL','Asignatura y carrera','Play / finalizados'], reportTopRows(rankings.youtube, r => `${r.plays} / ${r.ended}`), [7,38,38,17]),
+          analysisBox(interpretations.youtube),
           subtitle('4.3 Archivos Canvas más valorados'),
           makeTable(['N.º','URL','Asignatura y carrera','Valoraciones / promedio'], reportTopRows(rankings.canvasFiles, r => `${r.ratingCount} / ${r.averageRating.toFixed(2)}`), [7,38,38,17]),
+          analysisBox(interpretations.canvas),
           subtitle('4.4 Videos más valorados, incluido YouTube'),
           makeTable(['N.º','URL','Asignatura y carrera','Valoraciones / promedio'], reportTopRows(rankings.videos, r => `${r.ratingCount} / ${r.averageRating.toFixed(2)}`), [7,38,38,17]),
+          analysisBox(interpretations.videos),
           title('5. Análisis de comentarios'),
           body(`Se registraron ${metrics.comments.totalComments} comentarios en ${metrics.comments.commentedResources.length} recursos únicos. La tabla presenta hasta 20 recursos, ordenados desde el más comentado hasta el menos comentado.`),
           makeTable(['N.º','URL','Asignatura y carrera','Comentarios'], commentRows.length ? commentRows : [['-','Sin recursos comentados','-','0']], [7,42,39,12]),
+          analysisBox(interpretations.comments),
           ...(metrics.comments.mostCommented ? [
             subtitle('5.1 Comentarios del recurso más comentado'),
             body(`Recurso: ${metrics.comments.mostCommented.url}. Total: ${metrics.comments.mostCommented.commentCount} comentarios de ${metrics.comments.mostCommented.commentStudents} estudiantes.`),
             ...commentParagraphs
           ] : []),
-          title('6. Conclusiones ejecutivas'),
+          title('6. Mejoras derivadas de los comentarios'),
+          body('Este apartado transforma la retroalimentación estudiantil en líneas de actuación. La clasificación automática es orientativa y se basa en palabras clave; por ello, debe complementarse con revisión humana.'),
+          makeTable(['Categoría orientativa','Comentarios'], [
+            ['Positivos', String(commentInsights.counts.positivo)],
+            ['Sugerencias de mejora', String(commentInsights.counts.sugerencia_mejora)],
+            ['Posibles incidencias técnicas', String(commentInsights.counts.incidencia_tecnica)],
+            ['Otros comentarios', String(commentInsights.counts.otro)]
+          ], [70,30]),
+          ...commentInsights.observations.map(text => new Paragraph({ bullet: { level: 0 }, spacing: { after: 100 }, children: [new TextRun({ text, size: 22, color: '334155' })] })),
+          title('7. Recomendaciones priorizadas'),
+          ...recommendations.map((text, index) => new Paragraph({
+            numbering: { reference: 'recommendations-numbering', level: 0 },
+            spacing: { after: 110 },
+            children: [new TextRun({ text, size: 22, color: index === 0 ? BLUE : '334155', bold: index === 0 })]
+          })),
+          title('8. Conclusiones ejecutivas'),
           ...conclusions.map(text => new Paragraph({ bullet: { level: 0 }, spacing: { after: 100 }, children: [new TextRun({ text, size: 22, color: '334155' })] }))
         ];
 
@@ -1593,10 +1712,16 @@
           title: 'Informe ejecutivo de analíticas académicas',
           description: 'Informe generado automáticamente desde el dashboard UTPL.',
           numbering: {
-            config: [{
-              reference: 'comments-numbering',
-              levels: [{ level: 0, format: NumberFormat.DECIMAL, text: '%1.', alignment: AlignmentType.START, style: { paragraph: { indent: { left: 420, hanging: 220 } } } }]
-            }]
+            config: [
+              {
+                reference: 'comments-numbering',
+                levels: [{ level: 0, format: NumberFormat.DECIMAL, text: '%1.', alignment: AlignmentType.START, style: { paragraph: { indent: { left: 420, hanging: 220 } } } }]
+              },
+              {
+                reference: 'recommendations-numbering',
+                levels: [{ level: 0, format: NumberFormat.DECIMAL, text: '%1.', alignment: AlignmentType.START, style: { paragraph: { indent: { left: 420, hanging: 220 } } } }]
+              }
+            ]
           },
           styles: {
             default: { document: { run: { font: 'Aptos', size: 22 }, paragraph: { spacing: { line: 276 } } } },
