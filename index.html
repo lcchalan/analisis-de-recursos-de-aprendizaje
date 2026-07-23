@@ -51,7 +51,7 @@
           <i class="fa-solid fa-rotate"></i> Cargar demo
         </button>
         <button id="btn-word-report" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs border border-emerald-700 flex items-center gap-1 shadow-sm" title="Generar informe con los datos y filtros actuales">
-          <i class="fa-solid fa-file-word"></i> Generar informe Word
+          <i class="fa-solid fa-file-word"></i> Generar y descargar informe Word
         </button>
       </div>
     </div>
@@ -1717,11 +1717,11 @@
           ...reportCharts.youtube,
           analysisParagraph(interpretations.youtube),
           subtitle('4.3 Archivos Canvas más valorados'),
-          makeTable(['N.º','URL','Asignatura y carrera','Valoraciones / promedio'], reportTopRows(rankings.canvasFiles, r => `${r.ratingCount} / ${r.averageRating.toFixed(2)}`), [7,38,38,17]),
+          makeTable(['N.º','URL','Asignatura y carrera','N.º de valoraciones','Rating promedio'], (rankings.canvasFiles.length ? rankings.canvasFiles.map((r, i) => [String(i + 1), r.url || '-', reportResourceContext(r), String(r.ratingCount), r.averageRating.toFixed(2)]) : [['-','Sin resultados','-','0','0.00']]), [6,34,32,14,14]),
           ...reportCharts.canvasFiles,
           analysisParagraph(interpretations.canvas),
           subtitle('4.4 Videos más valorados, incluido YouTube'),
-          makeTable(['N.º','URL','Asignatura y carrera','Valoraciones / promedio'], reportTopRows(rankings.videos, r => `${r.ratingCount} / ${r.averageRating.toFixed(2)}`), [7,38,38,17]),
+          makeTable(['N.º','URL','Asignatura y carrera','N.º de valoraciones','Rating promedio'], (rankings.videos.length ? rankings.videos.map((r, i) => [String(i + 1), r.url || '-', reportResourceContext(r), String(r.ratingCount), r.averageRating.toFixed(2)]) : [['-','Sin resultados','-','0','0.00']]), [6,34,32,14,14]),
           ...reportCharts.videos,
           analysisParagraph(interpretations.videos),
           title('5. Análisis de comentarios'),
@@ -1792,68 +1792,30 @@
         const timestamp = now.toISOString().slice(0,10);
         const fileName = `Informe_ejecutivo_analiticas_UTPL_${timestamp}.docx`;
 
-        // En vistas previas protegidas (Gemini/ChatGPT) la descarga automática
-        // puede ser bloqueada. Se crea siempre un enlace visible y persistente.
-        let panel = document.getElementById('word-download-panel');
-        if (!panel) {
-          panel = document.createElement('div');
-          panel.id = 'word-download-panel';
-          panel.className = 'fixed inset-x-4 bottom-4 md:left-auto md:right-5 md:w-[430px] bg-white border border-emerald-300 border-l-4 border-l-emerald-600 rounded-xl shadow-2xl p-4 z-[100]';
-          document.body.appendChild(panel);
+        // El mismo botón del encabezado funciona como único control de descarga.
+        // Se conserva el archivo generado en memoria para permitir volver a descargarlo
+        // sin mostrar ventanas emergentes ni crear botones adicionales.
+        if (button.dataset.objectUrl) {
+          try { URL.revokeObjectURL(button.dataset.objectUrl); } catch (_) {}
         }
+        button.dataset.objectUrl = url;
+        button.dataset.fileName = fileName;
+        button.innerHTML = '<i class="fa-solid fa-download"></i> Descargar informe Word';
 
-        // Revocar el enlace anterior únicamente después de crear el nuevo.
-        if (panel.dataset.objectUrl) {
-          try { URL.revokeObjectURL(panel.dataset.objectUrl); } catch (_) {}
-        }
-        panel.dataset.objectUrl = url;
-        panel.innerHTML = `
-          <div class="flex items-start gap-3">
-            <div class="p-2 bg-emerald-50 text-emerald-700 rounded-lg">
-              <i class="fa-solid fa-file-word text-lg"></i>
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-bold text-slate-800">Informe Word listo</p>
-              <p class="text-xs text-slate-500 mt-1 break-all">${fileName}</p>
-              <div class="flex flex-wrap gap-2 mt-3">
-                <a id="word-download-link" href="${url}" download="${fileName}"
-                   class="inline-flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg">
-                  <i class="fa-solid fa-download"></i> Descargar informe Word
-                </a>
-                <button id="word-download-close" type="button"
-                        class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg">
-                  Cerrar
-                </button>
-              </div>
-              <p class="text-[10px] text-slate-500 mt-2">Si la vista previa bloquea la descarga, descargue este HTML y ábralo en Chrome, Edge o Firefox.</p>
-            </div>
-          </div>`;
-
-        document.getElementById('word-download-close').addEventListener('click', () => {
-          panel.classList.add('hidden');
-        });
-        panel.classList.remove('hidden');
-
-        // Se intenta también la descarga automática. Si el entorno la bloquea,
-        // el enlace manual permanece disponible.
-        try {
-          const anchor = document.createElement('a');
-          anchor.href = url;
-          anchor.download = fileName;
-          anchor.style.display = 'none';
-          document.body.appendChild(anchor);
-          anchor.click();
-          anchor.remove();
-        } catch (downloadError) {
-          console.warn('Descarga automática bloqueada:', downloadError);
-        }
-        showToast('Informe generado. Use el enlace visible para descargarlo.');
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        showToast('Informe generado. El botón queda disponible para volver a descargarlo.');
       } catch (error) {
         console.error(error);
         showToast(`No se pudo generar el informe Word: ${error.message}`, true);
       } finally {
         button.disabled = false;
-        button.innerHTML = originalHtml;
+        if (!button.dataset.objectUrl) button.innerHTML = originalHtml;
       }
     }
 
@@ -1864,7 +1826,20 @@
     document.getElementById('drop-zone').addEventListener('dragleave', e => e.currentTarget.classList.remove('border-utpl-blue'));
     document.getElementById('drop-zone').addEventListener('drop', e => { e.preventDefault(); e.currentTarget.classList.remove('border-utpl-blue'); if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); });
     document.getElementById('btn-demo').addEventListener('click', () => { rawData = demoData; validateColumns(EXPECTED_COLUMNS); initializeDashboard(); showToast('Datos de demostración cargados.'); });
-    document.getElementById('btn-word-report').addEventListener('click', generateExecutiveWordReport);
+    document.getElementById('btn-word-report').addEventListener('click', event => {
+      const button = event.currentTarget;
+      if (button.dataset.objectUrl && button.dataset.fileName) {
+        const anchor = document.createElement('a');
+        anchor.href = button.dataset.objectUrl;
+        anchor.download = button.dataset.fileName;
+        anchor.style.display = 'none';
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        return;
+      }
+      generateExecutiveWordReport();
+    });
     document.getElementById('btn-clear').addEventListener('click', () => {
       filterConfig.forEach(([id, , , isMultiple]) => clearFilterSelection(id, isMultiple));
       document.getElementById('filter-rating').value = 'ALL';
