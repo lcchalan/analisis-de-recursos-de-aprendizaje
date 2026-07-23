@@ -1531,7 +1531,7 @@
         const {
           Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
           HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType,
-          PageBreak, Footer, PageNumber, NumberFormat
+          PageBreak, Footer, PageNumber, NumberFormat, ImageRun
         } = window.docx;
 
         const metrics = getReportMetrics();
@@ -1594,26 +1594,55 @@
           spacing: { after: 110, line: 300 },
           children: [new TextRun({ text, size: 22, color: '334155' })]
         });
-        const analysisBox = text => new Table({
-          width: { size: 100, type: WidthType.PERCENTAGE },
-          borders: {
-            top: { style: BorderStyle.SINGLE, size: 5, color: '93C5FD' },
-            bottom: { style: BorderStyle.SINGLE, size: 5, color: '93C5FD' },
-            left: { style: BorderStyle.SINGLE, size: 5, color: '93C5FD' },
-            right: { style: BorderStyle.SINGLE, size: 5, color: '93C5FD' }
-          },
-          rows: [new TableRow({ children: [new TableCell({
-            shading: { type: ShadingType.CLEAR, fill: 'EFF6FF' },
-            margins: { top: 130, bottom: 130, left: 150, right: 150 },
-            children: [new Paragraph({
-              spacing: { after: 0, line: 290 },
-              children: [
-                new TextRun({ text: 'Interpretación para la toma de decisiones. ', bold: true, color: BLUE, size: 21 }),
-                new TextRun({ text, color: '334155', size: 21 })
-              ]
-            })]
-          })] })]
+        const analysisParagraph = text => new Paragraph({
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: { before: 90, after: 150, line: 310 },
+          children: [
+            new TextRun({ text: 'Interpretación para la toma de decisiones. ', bold: true, color: BLUE, size: 22 }),
+            new TextRun({ text, color: '334155', size: 22 })
+          ]
         });
+
+        const dataUrlToUint8Array = dataUrl => {
+          const base64 = dataUrl.split(',')[1] || '';
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+          return bytes;
+        };
+
+        const chartParagraphs = (canvasId, caption, number) => {
+          const canvas = document.getElementById(canvasId);
+          if (!canvas || !canvas.width || !canvas.height) return [];
+          try {
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = canvas.width;
+            exportCanvas.height = canvas.height;
+            const ctx = exportCanvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+            ctx.drawImage(canvas, 0, 0);
+            const data = dataUrlToUint8Array(exportCanvas.toDataURL('image/png', 1));
+            const ratio = exportCanvas.height / exportCanvas.width;
+            const width = 620;
+            const height = Math.max(220, Math.min(360, Math.round(width * ratio)));
+            return [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 100, after: 60 },
+                children: [new ImageRun({ data, transformation: { width, height }, type: 'png' })]
+              }),
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 120 },
+                children: [new TextRun({ text: `Figura ${number}. ${caption}`, italics: true, color: '475569', size: 19 })]
+              })
+            ];
+          } catch (error) {
+            console.warn(`No se pudo incorporar la gráfica ${canvasId} al informe.`, error);
+            return [];
+          }
+        };
 
         const kpiRows = [
           ['Participación estudiantil', `${metrics.interactingStudents} / ${metrics.totalStudents}`, `${metrics.nonInteractingStudents} no interactuaron`],
@@ -1637,6 +1666,16 @@
         ]);
 
         const mostComments = metrics.comments.mostCommented?.comments || [];
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const reportCharts = {
+          types: chartParagraphs('chart-types', 'Distribución por tipo de recurso.', 1),
+          actions: chartParagraphs('chart-actions', 'Acciones registradas en los recursos.', 2),
+          genially: chartParagraphs('chart-genially', 'Genially con mayor tiempo acumulado de interacción.', 3),
+          youtube: chartParagraphs('chart-youtube', 'Videos de YouTube con mayor número de reproducciones y finalizaciones.', 4),
+          canvasFiles: chartParagraphs('chart-canvas-files', 'Archivos Canvas con mayor número de valoraciones válidas.', 5),
+          videos: chartParagraphs('chart-videos', 'Videos internos y de YouTube con mayor número de valoraciones válidas.', 6)
+        };
+
         const commentParagraphs = mostComments.slice(0, 30).map((comment, index) => new Paragraph({
           numbering: { reference: 'comments-numbering', level: 0 },
           spacing: { after: 80 },
@@ -1654,35 +1693,41 @@
           title('1. Alcance y filtros aplicados'),
           body('El presente informe sintetiza la participación estudiantil y el uso de recursos educativos registrados en el archivo cargado. Los resultados se calculan con base en las reglas definidas en el tablero y se actualizan conforme a los filtros seleccionados.'),
           makeTable(['Filtro', 'Selección'], filters, [28,72]),
-          analysisBox(interpretations.filters),
+          analysisParagraph(interpretations.filters),
           title('2. Resumen ejecutivo de indicadores'),
           makeTable(['Indicador', 'Resultado', 'Criterio de cálculo'], kpiRows, [30,20,50]),
-          analysisBox(interpretations.kpis),
+          analysisParagraph(interpretations.kpis),
           title('3. Distribución de recursos y acciones'),
           subtitle('3.1 Distribución por tipo de recurso'),
           makeTable(['Tipo de recurso', 'Registros'], typeRows.length ? typeRows : [['Sin datos','0']], [72,28]),
-          analysisBox(interpretations.types),
+          ...reportCharts.types,
+          analysisParagraph(interpretations.types),
           subtitle('3.2 Acciones registradas'),
           makeTable(['Acción', 'Cantidad'], actionRows.length ? actionRows : [['Sin datos','0']], [72,28]),
-          analysisBox(interpretations.actions),
+          ...reportCharts.actions,
+          analysisParagraph(interpretations.actions),
           new Paragraph({ children: [new PageBreak()] }),
           title('4. Recursos destacados'),
           subtitle('4.1 Genially con mayor tiempo de interacción'),
           makeTable(['N.º','URL','Asignatura y carrera','Tiempo acumulado'], reportTopRows(rankings.genially, r => formatTime(r.metric)), [7,38,38,17]),
-          analysisBox(interpretations.genially),
+          ...reportCharts.genially,
+          analysisParagraph(interpretations.genially),
           subtitle('4.2 YouTube con mayor reproducción y finalización'),
           makeTable(['N.º','URL','Asignatura y carrera','Play / finalizados'], reportTopRows(rankings.youtube, r => `${r.plays} / ${r.ended}`), [7,38,38,17]),
-          analysisBox(interpretations.youtube),
+          ...reportCharts.youtube,
+          analysisParagraph(interpretations.youtube),
           subtitle('4.3 Archivos Canvas más valorados'),
           makeTable(['N.º','URL','Asignatura y carrera','Valoraciones / promedio'], reportTopRows(rankings.canvasFiles, r => `${r.ratingCount} / ${r.averageRating.toFixed(2)}`), [7,38,38,17]),
-          analysisBox(interpretations.canvas),
+          ...reportCharts.canvasFiles,
+          analysisParagraph(interpretations.canvas),
           subtitle('4.4 Videos más valorados, incluido YouTube'),
           makeTable(['N.º','URL','Asignatura y carrera','Valoraciones / promedio'], reportTopRows(rankings.videos, r => `${r.ratingCount} / ${r.averageRating.toFixed(2)}`), [7,38,38,17]),
-          analysisBox(interpretations.videos),
+          ...reportCharts.videos,
+          analysisParagraph(interpretations.videos),
           title('5. Análisis de comentarios'),
           body(`Se registraron ${metrics.comments.totalComments} comentarios en ${metrics.comments.commentedResources.length} recursos únicos. La tabla presenta hasta 20 recursos, ordenados desde el más comentado hasta el menos comentado.`),
           makeTable(['N.º','URL','Asignatura y carrera','Comentarios'], commentRows.length ? commentRows : [['-','Sin recursos comentados','-','0']], [7,42,39,12]),
-          analysisBox(interpretations.comments),
+          analysisParagraph(interpretations.comments),
           ...(metrics.comments.mostCommented ? [
             subtitle('5.1 Comentarios del recurso más comentado'),
             body(`Recurso: ${metrics.comments.mostCommented.url}. Total: ${metrics.comments.mostCommented.commentCount} comentarios de ${metrics.comments.mostCommented.commentStudents} estudiantes.`),
